@@ -19,8 +19,9 @@ static snd_pcm_t *handle;
 // Sample size note: This works for mono files because each sample ("frame') is 1 value.
 // If using stereo files then a frame would be two samples.
 
-static unsigned long playbackBufferSize = 1;
+static unsigned long playbackBufferSize = 0;
 static short *playbackBuffer = NULL;
+// static short playbackBuffer[12000];
 
 short maxSampleValue = 32768;
 short minSampleValue = -32768;
@@ -89,7 +90,7 @@ void AudioMixer_init(void)
 	playbackBuffer = malloc(playbackBufferSize * sizeof(*playbackBuffer));
 
 	// Launch playback thread:
-	pthread_create(&playbackThreadId, NULL, playbackThread, NULL);
+	// pthread_create(&playbackThreadId, NULL, playbackThread, NULL);
 }
 
 
@@ -126,7 +127,6 @@ void AudioMixer_readWaveFileIntoMemory(char *fileName, wavedata_t *pSound)
 
 	// Read PCM data from wave file into memory
 	int samplesRead = fread(pSound->pData, SAMPLE_SIZE, pSound->numSamples, file);
-	printf("the file has beeen read");
 	if (samplesRead != pSound->numSamples) {
 		fprintf(stderr, "ERROR: Unable to read %d samples from file %s (read %d).\n",
 				pSound->numSamples, fileName, samplesRead);
@@ -246,6 +246,9 @@ void AudioMixer_setVolume(int newVolume)
 //    size: the number of *values* to store into buff
 static void fillPlaybackBuffer(short *buff, int size)
 {
+	printf("flushing");
+	fflush(stdout);
+	printf("done flushing \n");
 	/*
 	 * REVISIT: Implement this
 	 * 1. Wipe the buff to all 0's to clear any previous PCM data.
@@ -288,38 +291,67 @@ static void fillPlaybackBuffer(short *buff, int size)
 	 */
 
 	// 1 : clear PCM data using memset
-	// memset(buff, 0, size);
-	// 2 : loop through each byte 
-	for(int i = 0; i < MAX_SOUND_BITES; i++) {
-		// if empty do nothing, otherwise add bytes to the buffer
-		int offset = soundBites[i].location;
-		if(soundBites[i].pSound != NULL) {
-			printf("sound bites!!!");
+	// memset(buff, 0, size * sizeof(*playbackBuffer));
+	// // 2 : loop through each byte 
+	// for(int i = 0; i < MAX_SOUND_BITES; i++) {
+	// 	// if empty do nothing, otherwise add bytes to the buffer
+	// 	int offset = soundBites[i].location;
+	// 	if(soundBites[i].pSound != NULL) {
+	// 		printf("this should execute only once");
+	// 			for(int k = 0; k < size; k++ ) {
+	// 			buff[k] += soundBites[i].pSound->pData[offset];
+	// 			// printf("%d \n", (int) buff[k]);
+	// 			offset++;
+	// 			// make sure the buff[k] isnt too big or small
+	// 			// if(buff[k] > maxSampleValue) {
+	// 			// 	buff[k] = maxSampleValue;
+	// 			// }
+
+	// 			// else if(buff[k] < minSampleValue) {
+	// 			// 	buff[k] = minSampleValue;
+	// 			// }
+
+	// 			// check if offset is equal to the samples size
+	// 			if(offset == soundBites[i].pSound->numSamples) {
+	// 				// then set the pointer to null and location to 0
+	// 				printf("reached the end of the sound !! \n");
+	// 				soundBites[i].pSound = NULL;
+	// 				soundBites[i].location = 0;
+	// 			}
+	// 		}
+	// 	} 
+	// }
+
+	bool soundIsDone = false;
+	int offset = 0;
+	while(!soundIsDone) {
+		memset(buff, 0, size * sizeof(*playbackBuffer));
+		if(soundBites[0].pSound != NULL) {
+			printf("this should execute only once");
 				for(int k = 0; k < size; k++ ) {
-				printf("%d", k);
-				buff[k] += soundBites[i].pSound->pData[offset];
+				buff[k] += soundBites[0].pSound->pData[offset];
+				// printf("%d \n", (int) buff[k]);
 				offset++;
-				// make sure the buff[k] isnt too big or small
-				if(buff[k] > maxSampleValue) {
-					buff[k] = maxSampleValue;
-				}
-				else if(buff[k] < minSampleValue) {
-					buff[k] = minSampleValue;
-				}
 				// check if offset is equal to the samples size
-				if(offset == soundBites[i].pSound->numSamples) {
+				if(offset == soundBites[0].pSound->numSamples) {
 					// then set the pointer to null and location to 0
-					soundBites[i].pSound = NULL;
-					soundBites[i].location = 0;
+					printf("reached the end of the sound !! \n");
+					soundBites[0].pSound = NULL;
+					soundBites[0].location = 0;
 				}
+			}
+			// chwck if offset = samples
+			if(offset == soundBites[0].pSound->numSamples) {
+				soundIsDone = true;
 			}
 		} 
 	}
+	
 }
 
 
-void* playbackThread(void* _arg)
-{
+void* playbackThread(void* _arg) {
+	
 	while (!stopping) {
 		// Generate next block of audio
 		fillPlaybackBuffer(playbackBuffer, playbackBufferSize);
@@ -349,33 +381,44 @@ void* playbackThread(void* _arg)
 
 void testFunction() {
 	// going to play sample file on a continuous loop
-	char *fileToPlay = "wave-files/100060__menegass__gui-drum-splash-hard.wav";
+	char *fileToPlay = "wave-files/100053__menegass__gui-drum-cc.wav";
 	// need a wavedata object to do so
 	wavedata_t sample;
-	wavedata_t *ptrToSample = &sample;
-	printf("HEEEYYY GIRLLLLLL \n");
 	// initiliaze
-	// AudioMixer_init();
+	AudioMixer_init();
 	// read in wave
 	AudioMixer_readWaveFileIntoMemory(fileToPlay, &sample);
 	// queue the wave
 	AudioMixer_queueSound(&sample);
-	// // fill the buffer 
+	for(int i = 0; i < MAX_SOUND_BITES; i++) {
+		if(soundBites[i].pSound != NULL) {
+			printf("succesfully qu sound at %d", i);
+		}
+	}
+	// // fill the buffer
 	fillPlaybackBuffer(playbackBuffer, playbackBufferSize);
-	// // output audio
-	// snd_pcm_sframes_t frames = snd_pcm_writei(handle, playbackBuffer, playbackBufferSize);
-	// if (frames < 0) {
-	// 		fprintf(stderr, "AudioMixer: writei() returned %li\n", frames);
-	// 		frames = snd_pcm_recover(handle, frames, 1);
-	// 	}
-	// 	if (frames < 0) {
-	// 		fprintf(stderr, "ERROR: Failed writing audio with snd_pcm_writei(): %li\n",
-	// 				frames);
-	// 		exit(EXIT_FAILURE);
-	// 	}
-	// 	if (frames > 0 && frames < playbackBufferSize) {
-	// 		printf("Short write (expected %li, wrote %li)\n",
-	// 				playbackBufferSize, frames);
-	// 	}
-	// sleep(1);
+	for(int i = 0; i < playbackBufferSize; i++) {
+		printf("BUFFER VAL: %d \n", playbackBuffer[i]);
+	}
+	// // // output audio
+	fflush(stdout);
+	snd_pcm_sframes_t frames = snd_pcm_writei(handle, playbackBuffer, playbackBufferSize);
+	// sleep(5);
+	if (frames < 0) {
+			fprintf(stderr, "AudioMixer: writei() returned %li\n", frames);
+			frames = snd_pcm_recover(handle, frames, 1);
+		}
+		if (frames < 0) {
+			fprintf(stderr, "ERROR: Failed writing audio with snd_pcm_writei(): %li\n",
+					frames);
+			exit(EXIT_FAILURE);
+		}
+		if (frames > 0 && frames < playbackBufferSize) {
+			printf("Short write (expected %li, wrote %li)\n",
+					playbackBufferSize, frames);
+		}
+
+	snd_pcm_drain(handle);
+	// free(sampleFile.pData);		
+	// sleep(100);
 }
