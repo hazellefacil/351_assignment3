@@ -8,8 +8,6 @@
 #include <limits.h>
 #include <alloca.h> // needed for mixer
 
-// lalalal
-
 
 static snd_pcm_t *handle;
 
@@ -92,7 +90,7 @@ void AudioMixer_init(void)
 	playbackBuffer = malloc(playbackBufferSize * sizeof(*playbackBuffer));
 
 	// Launch playback thread:
-	// pthread_create(&playbackThreadId, NULL, playbackThread, NULL);
+	pthread_create(&playbackThreadId, NULL, playbackThread, NULL);
 }
 
 
@@ -165,15 +163,14 @@ void AudioMixer_queueSound(wavedata_t *pSound)
 
 	// search sound bites for null ptr 
 	for(int i = 0; i < MAX_SOUND_BITES; i++) {
+		// pthread_mutex_lock(&audioMutex);
 		if(soundBites[i].pSound == NULL) {
 			// put the new sound in that spot assign to new pointer
 			soundBites[i].pSound = pSound;
-			printf("assinged!!");
 			return;
 		}
+		// pthread_mutex_unlock(&audioMutex);
 	}
-
-	printf("there were no free slots!!! oops \n");
 	return;
 }
 
@@ -248,9 +245,7 @@ void AudioMixer_setVolume(int newVolume)
 //    size: the number of *values* to store into buff
 static void fillPlaybackBuffer(short *buff, int size)
 {
-	printf("flushing");
 	fflush(stdout);
-	printf("done flushing \n");
 	/*
 	 * REVISIT: Implement this
 	 * 1. Wipe the buff to all 0's to clear any previous PCM data.
@@ -293,62 +288,34 @@ static void fillPlaybackBuffer(short *buff, int size)
 	 */
 
 	// 1 : clear PCM data using memset
-	// memset(buff, 0, size * sizeof(*playbackBuffer));
-	// // 2 : loop through each byte 
-	// for(int i = 0; i < MAX_SOUND_BITES; i++) {
-	// 	// if empty do nothing, otherwise add bytes to the buffer
-	// 	int offset = soundBites[i].location;
-	// 	if(soundBites[i].pSound != NULL) {
-	// 		printf("this should execute only once");
-	// 			for(int k = 0; k < size; k++ ) {
-	// 			buff[k] += soundBites[i].pSound->pData[offset];
-	// 			// printf("%d \n", (int) buff[k]);
-	// 			offset++;
-	// 			// make sure the buff[k] isnt too big or small
-	// 			// if(buff[k] > maxSampleValue) {
-	// 			// 	buff[k] = maxSampleValue;
-	// 			// }
-
-	// 			// else if(buff[k] < minSampleValue) {
-	// 			// 	buff[k] = minSampleValue;
-	// 			// }
-
-	// 			// check if offset is equal to the samples size
-	// 			if(offset == soundBites[i].pSound->numSamples) {
-	// 				// then set the pointer to null and location to 0
-	// 				printf("reached the end of the sound !! \n");
-	// 				soundBites[i].pSound = NULL;
-	// 				soundBites[i].location = 0;
-	// 			}
-	// 		}
-	// 	} 
-	// }
-
-	bool soundIsDone = false;
-	int offset = 0;
-	while(!soundIsDone) {
-		memset(buff, 0, size * sizeof(*playbackBuffer));
-		if(soundBites[0].pSound != NULL) {
-			printf("this should execute only once");
-				for(int k = 0; k < size; k++ ) {
-				buff[k] += soundBites[0].pSound->pData[offset];
+	memset(buff, 0, size * sizeof(*playbackBuffer));
+	// printf("playback");
+	// 2 : loop through each byte 
+	for(int i = 0; i < MAX_SOUND_BITES; i++) {
+		// if empty do nothing, otherwise add bytes to the buffer
+		// pthread_mutex_lock(&audioMutex);
+		int offset = soundBites[i].location;
+		if(soundBites[i].pSound != NULL) {
+			printf("found a sound byte");
+			for(int k = 0; k < size; k++ ) {
+				buff[k] += soundBites[i].pSound->pData[offset];
 				// printf("%d \n", (int) buff[k]);
 				offset++;
 				// check if offset is equal to the samples size
-				if(offset == soundBites[0].pSound->numSamples) {
+				if((offset + 1) == soundBites[i].pSound->numSamples) {
 					// then set the pointer to null and location to 0
 					printf("reached the end of the sound !! \n");
-					soundBites[0].pSound = NULL;
-					soundBites[0].location = 0;
+					soundBites[i].pSound = NULL;
+					soundBites[i].location = 0;
+					break;
+				}
+				if( (k+1) == size ) {
+					soundBites[i].location = offset;
 				}
 			}
-			// chwck if offset = samples
-			if(offset == soundBites[0].pSound->numSamples) {
-				soundIsDone = true;
-			}
 		} 
+		// pthread_mutex_lock(&audioMutex);
 	}
-	
 }
 
 

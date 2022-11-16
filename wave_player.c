@@ -5,6 +5,7 @@
  */
 
 #include "audioMixer_template.h"
+#include "beatGenerator.h"
 #include <alsa/asoundlib.h>
 
 // File used for play-back:
@@ -64,7 +65,12 @@ int main(void)
 	// trying to do this myself
 	// AudioMixer_init();
 	// now that is has been read into memory. try queuing it 
-	testFunction();
+	// testFunction();
+	// sleep(1);
+
+	applySuperposition();
+	sleep(1);
+
 }
 
 
