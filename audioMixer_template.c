@@ -8,6 +8,8 @@
 #include <limits.h>
 #include <alloca.h> // needed for mixer
 
+// lalalal
+
 
 static snd_pcm_t *handle;
 
