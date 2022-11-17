@@ -6,8 +6,13 @@
 
 #include "audioMixer_template.h"
 #include "beatGenerator.h"
+#include "LED.h"
+#include "intervalTimer.h"
+#include "userInput.h"
 #include <alsa/asoundlib.h>
-
+#include "LED.h"
+#include <stdbool.h>
+#include "printingStats.h"
 // File used for play-back:
 // If cross-compiling, must have this file available, via this relative path,
 // on the target when the application is run. This example's Makefile copies the wave-files/
@@ -19,61 +24,36 @@
 #define NUM_CHANNELS  1
 #define SAMPLE_SIZE   (sizeof(short)) 	// bytes per sample
 
-// Store data of a single wave file read into memory.
-// Space is dynamically allocated; must be freed correctly!
-// typedef struct {
-// 	int numSamples;
-// 	short *pData;
-// } wavedata_t;
-
 // Prototypes:
 snd_pcm_t *Audio_openDevice();
 void Audio_readWaveFileIntoMemory(char *fileName, wavedata_t *pWaveStruct);
 void Audio_playFile(snd_pcm_t *handle, wavedata_t *pWaveData);
-
+static _Bool stopping = false;
 
 
 int main(void)
 {
 	printf("Beginning play-back of %s\n", SOURCE_FILE);
+	AudioMixer_init();
+	Interval_init();
+	beatGenerator_init();
+	printing_init();
 
-	// Configure Output Device
-	// snd_pcm_t *handle = Audio_openDevice();
-
-	// // Load wave file we want to play:
-	// wavedata_t sampleFile;
-	// Audio_readWaveFileIntoMemory(SOURCE_FILE, &sampleFile);
-
-	// // Play Audio
-	// // try to add two sounds together!!!
-	// while(1) {
-	// 	Audio_playFile(handle, &sampleFile);
-	// //	Audio_playFile(handle, &sampleFile);
-	// //	Audio_playFile(handle, &sampleFile);
-	// 	sleep(2);
-	// }
-	
-	// // Cleanup, letting the music in buffer play out (drain), then close and free.
-	// snd_pcm_drain(handle);
-	// snd_pcm_hw_free(handle);
-	// snd_pcm_close(handle);
-	// free(sampleFile.pData);
-
-	// printf("Done!\n");
-	// return 0;
-
-	// trying to do this myself
-	// AudioMixer_init();
-	// now that is has been read into memory. try queuing it 
-	// testFunction();
-	// sleep(1);
-
-	applySuperposition();
-	sleep(1);
-
+	displayMode(1);
+	userInput_init();
+	printf("Enter 'Q' to quit.\n");
+    while(1){
+        printf("Enter 'Q' to quit.\n");
+        if (toupper(getchar()) == 'Q') {
+            stopping = true;
+            userInput_cleanup();
+			printing_cleanup();
+			beatGenerator_clean();
+			AudioMixer_cleanup();
+            exit(0);
+        }
+    }
 }
-
-
 
 // Open the PCM audio output device and configure it.
 // Returns a handle to the PCM device; needed for other actions.
